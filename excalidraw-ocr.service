@@ -1,0 +1,46 @@
+# systemd service: transcribe handwriting in Obsidian Excalidraw drawings, checking every 10 minutes.
+#
+# Intended for the always-on Ubuntu desktop VM, where Obsidian runs continuously and its
+# Remotely Save plugin syncs the vault with Nextcloud (turn on Remotely Save's auto-sync interval).
+# Drawings from the iPad arrive through that sync; transcript notes go back out the same way.
+#
+# Install on the VM:
+#   1. Copy the excalidraw-ocr folder to the VM (skip .venv; it's rebuilt on first start), e.g. to
+#      /home/YOURUSER/excalidraw-ocr
+#   2. Replace every YOURUSER (e.g. sed -i 's/YOURUSER/alice/g' excalidraw-ocr.service) and check the vault path.
+#   3. Put the OpenRouter key in /home/YOURUSER/.config/excalidraw-ocr/openrouter.key (chmod 600).
+#      Optional: copy ~/.local/state/excalidraw-ocr/state.json from the laptop too, so drawings that are
+#      already transcribed aren't sent again.
+#   4. sudo cp excalidraw-ocr.service /etc/systemd/system/
+#      sudo systemctl daemon-reload
+#      sudo systemctl enable --now excalidraw-ocr
+#   5. Logs: journalctl -u excalidraw-ocr -f
+#
+# The first start creates .venv and installs dependencies (needs python3-venv, or uv).
+
+[Unit]
+Description=Excalidraw handwriting transcription (OpenRouter)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Your desktop user on the VM (owns the vault and runs Obsidian).
+User=YOURUSER
+WorkingDirectory=/home/YOURUSER/excalidraw-ocr
+
+# The Obsidian vault folder on the VM.
+Environment=EXCALIDRAW_OCR_VAULT=/home/YOURUSER/Notes
+
+# Optional overrides/secrets (e.g. OPENROUTER_API_KEY=...). The leading '-' means the file may not exist.
+EnvironmentFile=-/etc/excalidraw-ocr.env
+
+ExecStart=/home/YOURUSER/excalidraw-ocr/run.sh --watch 10
+Restart=on-failure
+RestartSec=60
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
